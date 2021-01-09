@@ -31,7 +31,7 @@ void setup_wifi()
     Serial.println(WiFi.localIP());
 }
 
-void Reconnect()
+void reconnect()
 {
     Serial.print("Attempting MQTT connection...");
     while (!client.connected())
@@ -44,7 +44,7 @@ void Reconnect()
     Serial.println(client.state());
 }
 
-void Publish_Message(String topic, String msg)
+void publish_message(String topic, String msg)
 {
     if(client.connected())
     {
@@ -53,7 +53,7 @@ void Publish_Message(String topic, String msg)
     }
 }
 
-void Subscribe_Topic(String topic)
+void subscribe_topic(String topic)
 {
     if(client.connected())
     {
@@ -71,6 +71,9 @@ void callback(char *topic, byte *payload, unsigned int length)
     Serial.println("Message arrived -> topic : " + String(topic) + ", msg : " + String(msg));
 }
 
+String topic("thsvkd/hello");
+String msg("hello?");
+
 void setup()
 {
     Serial.begin(9600);      
@@ -81,15 +84,14 @@ void setup()
 
 void loop()
 {
-    String topic("thsvkd/hello");
-    String msg("hello?");
-
-    Subscribe_Topic((topic + "/answer").c_str());
     if(!client.connected())
-        Reconnect();
+        reconnect();
 
-    Publish_Message(topic, msg);
+    subscribe_topic((topic + "/answer").c_str());
+
+    //publish_message(topic, msg);
 
     client.loop();
-    delay(1000);
+    //Serial.println(client.state());
+    delay(500);
 }
