@@ -1,18 +1,19 @@
 #include <WiFiNINA.h>
-#include <PubSubClient.h>
+//#include <PubSubClient.h>
+#include <ArduinoMqttClient.h>
 
 char ssid[] = "SuperSmartSonMesh_2G";
 char password[] = "22872287228722872";
 const char *mqtt_server = "broker.emqx.io";
 int mqtt_port = 1883;
 
-WiFiClient espClient;
-PubSubClient client(espClient);
+WiFiClient wifiClient;
+MqttClient client(wifiClient);
 
 void setup_wifi()
 {
     delay(100);
-    
+
     Serial.println();
     Serial.print("Connecting to ");
     Serial.println(ssid);
@@ -31,6 +32,22 @@ void setup_wifi()
     Serial.println(WiFi.localIP());
 }
 
+void connect()
+{
+    Serial.print("connecting...");
+
+    while (!client.connect("arduino", "try", "try"))
+    {
+        Serial.print(".");
+        delay(500);
+    }
+
+    Serial.println("\nconnected!");
+
+    //client.subscribe("thsvkd/hello/answer");
+    //client.subscribe("/juhaki.park__Relay_set");
+}
+
 void reconnect()
 {
     Serial.print("Attempting MQTT connection...");
@@ -44,21 +61,20 @@ void reconnect()
     Serial.println(client.state());
 }
 
-void publish_message(String topic, String msg)
+void publish(String topic, String msg)
 {
-    if(client.connected())
-    {
-        client.publish(topic.c_str(), msg.c_str());
-        Serial.println("publish -> " + topic + " : " + msg);
-    }
+    client.publish(topic.c_str(), msg.c_str());
+    Serial.println("publish -> " + topic + " : " + msg);
 }
 
-void subscribe_topic(String topic)
+void subscribe(String topic)
 {
-    if(client.connected())
-    {
-        client.subscribe(topic.c_str());
-    }
+    client.subscribe(topic.c_str());
+}
+
+void messageReceived(String &topic, String &payload)
+{
+    Serial.println("Message arrived -> topic : " + topic + ", msg : " + payload);
 }
 
 void callback(char *topic, byte *payload, unsigned int length)
@@ -76,22 +92,26 @@ String msg("hello?");
 
 void setup()
 {
-    Serial.begin(9600);      
-    setup_wifi();          
-    client.setServer(mqtt_server, mqtt_port);
-    client.setCallback(callback);
+    Serial.begin(115200);
+    setup_wifi();
+    client.begin(mqtt_server, mqtt_port, wifiClient);
+    client.onMessage(messageReceived);
+    //client.setServer(mqtt_server, mqtt_port);
+    //client.setCallback(callback);
+
+    //delay(1000);
+    connect();
+    subscribe((topic + "/answer").c_str());
 }
 
 void loop()
 {
-    if(!client.connected())
+    if (!client.connected())
         reconnect();
 
-    subscribe_topic((topic + "/answer").c_str());
-
-    //publish_message(topic, msg);
+    //publish(topic, msg);
 
     client.loop();
     //Serial.println(client.state());
-    delay(500);
+    //delay(500);
 }
