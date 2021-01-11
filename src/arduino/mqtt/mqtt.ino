@@ -10,6 +10,7 @@
 
 #define SERVO_PIN_1 2
 #define SERVO_PIN_2 3
+#define LED_PIN 4
 
 char ssid[] = "SuperSmartSonMesh_2G";
 char pass[] = "22872287228722872";
@@ -45,22 +46,38 @@ void setup_servo()
 
 void setup()
 {
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, LOW);
+    digitalWrite(LED_BUILTIN, LOW);
+    //Initialize serial and wait for port to open:
     Serial.begin(9600);
-    while (!Serial)
-    {
-        ;
-    }
+
+    // attempt to connect to Wifi network:
     Serial.print("Attempting to connect to WPA SSID: ");
     Serial.println(ssid);
     while (WiFi.begin(ssid, pass) != WL_CONNECTED)
     {
+        // failed, retry
         Serial.print(".");
-        delay(1000);
+        delay(250);
     }
 
     Serial.println("You're connected to the network");
     Serial.println();
 
+    // You can provide a unique client ID, if not set the library uses Arduin-millis()
+    // Each client must have a unique client ID
+    // mqttClient.setId("clientId");
+
+    // You can provide a username and password for authentication
+    // mqttClient.setUsernamePassword("username", "password");
+
+    // By default the library connects with the "clean session" flag set,
+    // you can disable this behaviour by using
+    // mqttClient.setCleanSession(false);
+
+    // set a will message, used by the broker when the connection dies unexpectantly
+    // you must know the size of the message before hand, and it must be set before connecting
     String willPayload = "oh no!";
     bool willRetain = true;
     int willQos = 1;
@@ -84,22 +101,52 @@ void setup()
     Serial.println("You're connected to the MQTT broker!");
     Serial.println();
 
+    // set the message receive callback
     mqttClient.onMessage(onMqttMessage);
 
     Serial.print("Subscribing to topic: ");
     Serial.println(inTopic);
     Serial.println();
 
+    // subscribe to a topic
+    // the second parameter set's the QoS of the subscription,
+    // the the library supports subscribing at QoS 0, 1, or 2
     int subscribeQos = 1;
 
     mqttClient.subscribe(inTopic, subscribeQos);
 
+    String hello_msg = "thsvkd/hello";
+
+    mqttClient.beginMessage(hello_msg, hello_msg.length(), false, 1, false);
+    mqttClient.print(hello_msg);
+    mqttClient.endMessage();
+
+    // topics can be unsubscribed using:
+    // mqttClient.unsubscribe(inTopic);
     setup_servo();
+    digitalWrite(LED_PIN, HIGH);
+    digitalWrite(LED_BUILTIN, HIGH);
 }
 
 void loop()
 {
     mqttClient.poll();
+
+    // if(switch_on)
+    // {
+    //     servo.write(135);
+    //     delay(500);
+    //     servo.write(90);
+    //     delay(500);
+    // }
+    // else
+    // {
+    //     servo2.write(45);
+    //     delay(500);
+    //     servo2.write(90);
+    //     delay(500);
+    // }
+    
 }
 
 
@@ -136,9 +183,9 @@ void onMqttMessage(int messageSize)
         Serial.println("switch off!");
         switch_on = 0;
 
-        servo.write(135);
+        servo2.write(45);
         delay(500);
-        servo.write(90);
+        servo2.write(90);
         delay(500);
 
         mqttClient.beginMessage(outTopic, payload.length(), retained, qos, dup);
@@ -149,10 +196,10 @@ void onMqttMessage(int messageSize)
     {
         Serial.println("switch on!");
         switch_on = 1;
-
-        servo2.write(135);
+        
+        servo.write(135);
         delay(500);
-        servo2.write(90);
+        servo.write(90);
         delay(500);
 
         mqttClient.beginMessage(outTopic, payload.length(), retained, qos, dup);
