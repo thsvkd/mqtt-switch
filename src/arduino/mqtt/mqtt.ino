@@ -1,117 +1,163 @@
-#include <WiFiNINA.h>
-//#include <PubSubClient.h>
+#include <Servo.h>
 #include <ArduinoMqttClient.h>
+#if defined(ARDUINO_SAMD_MKRWIFI1010) || defined(ARDUINO_SAMD_NANO_33_IOT) || defined(ARDUINO_AVR_UNO_WIFI_REV2)
+#include <WiFiNINA.h>
+#elif defined(ARDUINO_SAMD_MKR1000)
+#include <WiFi101.h>
+#elif defined(ARDUINO_ESP8266_ESP12)
+#include <ESP8266WiFi.h>
+#endif
+
+#define SERVO_PIN_1 2
+#define SERVO_PIN_2 3
 
 char ssid[] = "SuperSmartSonMesh_2G";
-char password[] = "22872287228722872";
-const char *mqtt_server = "broker.emqx.io";
-int mqtt_port = 1883;
+char pass[] = "22872287228722872";
 
 WiFiClient wifiClient;
-MqttClient client(wifiClient);
+MqttClient mqttClient(wifiClient);
 
-void setup_wifi()
+Servo servo;
+Servo servo2;
+
+const char broker[] = "broker.emqx.io";
+int port = 1883;
+const char willTopic[] = "arduino/will";
+const char inTopic[] = "thsvkd/switch";
+const char outTopic[] = "thsvkd/switch/result";
+
+unsigned long previousMillis = 0;
+String recv_msg = String("");
+int switch_on = 0;
+
+int count = 0;
+
+void setup_servo()
 {
-    delay(100);
+    Serial.println("servo setup...");
+    servo.attach(SERVO_PIN_1);
+    servo2.attach(SERVO_PIN_2);
 
-    Serial.println();
-    Serial.print("Connecting to ");
-    Serial.println(ssid);
-
-    WiFi.begin(ssid, password);
-
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        WiFi.begin(ssid, password);
-        Serial.print(".");
-        delay(500);
-    }
-    Serial.println("");
-    Serial.println("WiFi connected");
-    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());
+    servo.write(90);
+    servo2.write(90);
+    Serial.println("servo setup finish!!");
 }
-
-void connect()
-{
-    Serial.print("connecting...");
-
-    while (!client.connect("arduino", "try", "try"))
-    {
-        Serial.print(".");
-        delay(500);
-    }
-
-    Serial.println("\nconnected!");
-
-    //client.subscribe("thsvkd/hello/answer");
-    //client.subscribe("/juhaki.park__Relay_set");
-}
-
-void reconnect()
-{
-    Serial.print("Attempting MQTT connection...");
-    while (!client.connected())
-    {
-        Serial.print(".");
-        client.connect("thsvkd");
-        delay(500);
-    }
-    Serial.println("Connect success!");
-    Serial.println(client.state());
-}
-
-void publish(String topic, String msg)
-{
-    client.publish(topic.c_str(), msg.c_str());
-    Serial.println("publish -> " + topic + " : " + msg);
-}
-
-void subscribe(String topic)
-{
-    client.subscribe(topic.c_str());
-}
-
-void messageReceived(String &topic, String &payload)
-{
-    Serial.println("Message arrived -> topic : " + topic + ", msg : " + payload);
-}
-
-void callback(char *topic, byte *payload, unsigned int length)
-{
-    String msg = "";
-    for (int i = 0; i < length; i++)
-    {
-        msg += (char)payload[i];
-    }
-    Serial.println("Message arrived -> topic : " + String(topic) + ", msg : " + String(msg));
-}
-
-String topic("thsvkd/hello");
-String msg("hello?");
 
 void setup()
 {
-    Serial.begin(115200);
-    setup_wifi();
-    client.begin(mqtt_server, mqtt_port, wifiClient);
-    client.onMessage(messageReceived);
-    //client.setServer(mqtt_server, mqtt_port);
-    //client.setCallback(callback);
+    Serial.begin(9600);
+    while (!Serial)
+    {
+        ;
+    }
+    Serial.print("Attempting to connect to WPA SSID: ");
+    Serial.println(ssid);
+    while (WiFi.begin(ssid, pass) != WL_CONNECTED)
+    {
+        Serial.print(".");
+        delay(1000);
+    }
 
-    //delay(1000);
-    connect();
-    subscribe((topic + "/answer").c_str());
+    Serial.println("You're connected to the network");
+    Serial.println();
+
+    String willPayload = "oh no!";
+    bool willRetain = true;
+    int willQos = 1;
+
+    mqttClient.beginWill(willTopic, willPayload.length(), willRetain, willQos);
+    mqttClient.print(willPayload);
+    mqttClient.endWill();
+
+    Serial.print("Attempting to connect to the MQTT broker: ");
+    Serial.println(broker);
+
+    if (!mqttClient.connect(broker, port))
+    {
+        Serial.print("MQTT connection failed! Error code = ");
+        Serial.println(mqttClient.connectError());
+
+        while (1)
+            ;
+    }
+
+    Serial.println("You're connected to the MQTT broker!");
+    Serial.println();
+
+    mqttClient.onMessage(onMqttMessage);
+
+    Serial.print("Subscribing to topic: ");
+    Serial.println(inTopic);
+    Serial.println();
+
+    int subscribeQos = 1;
+
+    mqttClient.subscribe(inTopic, subscribeQos);
+
+    setup_servo();
 }
 
 void loop()
 {
-    if (!client.connected())
-        reconnect();
-
-    //publish(topic, msg);
-
-    client.loop();
-    //Serial.println(client.state());
-    //delay(500);
+    mqttClient.poll();
 }
+
+
+void onMqttMessage(int messageSize)
+{
+    recv_msg = String("");
+    bool retained = false;
+    int qos = 1;
+    bool dup = false;
+    String payload = "success!!";
+
+    Serial.print("Received a message with topic '");
+    Serial.print(mqttClient.messageTopic());
+    Serial.print("', duplicate = ");
+    Serial.print(mqttClient.messageDup() ? "true" : "false");
+    Serial.print(", QoS = ");
+    Serial.print(mqttClient.messageQoS());
+    Serial.print(", retained = ");
+    Serial.print(mqttClient.messageRetain() ? "true" : "false");
+    Serial.print("', length ");
+    Serial.print(messageSize);
+    Serial.println(" bytes:");
+
+    while (mqttClient.available())
+    {
+        recv_msg += (char)mqttClient.read();
+    }
+
+    Serial.println(recv_msg);
+    Serial.println();
+
+    if(!recv_msg.compareTo("0"))
+    {
+        Serial.println("switch off!");
+        switch_on = 0;
+
+        servo.write(135);
+        delay(500);
+        servo.write(90);
+        delay(500);
+
+        mqttClient.beginMessage(outTopic, payload.length(), retained, qos, dup);
+        mqttClient.print(payload);
+        mqttClient.endMessage();
+    }
+    else if(!recv_msg.compareTo("1"))
+    {
+        Serial.println("switch on!");
+        switch_on = 1;
+
+        servo2.write(135);
+        delay(500);
+        servo2.write(90);
+        delay(500);
+
+        mqttClient.beginMessage(outTopic, payload.length(), retained, qos, dup);
+        mqttClient.print(payload);
+        mqttClient.endMessage();
+    }
+}
+  
