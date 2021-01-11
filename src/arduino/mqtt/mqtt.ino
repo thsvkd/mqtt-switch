@@ -126,27 +126,14 @@ void setup()
     setup_servo();
     digitalWrite(LED_PIN, HIGH);
     digitalWrite(LED_BUILTIN, HIGH);
+
+    servo.detach();
+    servo2.detach();
 }
 
 void loop()
 {
     mqttClient.poll();
-
-    // if(switch_on)
-    // {
-    //     servo.write(135);
-    //     delay(500);
-    //     servo.write(90);
-    //     delay(500);
-    // }
-    // else
-    // {
-    //     servo2.write(45);
-    //     delay(500);
-    //     servo2.write(90);
-    //     delay(500);
-    // }
-    
 }
 
 
@@ -183,6 +170,7 @@ void onMqttMessage(int messageSize)
         Serial.println("switch off!");
         switch_on = 0;
 
+        servo2.attach(SERVO_PIN_2);
         servo2.write(45);
         delay(500);
         servo2.write(90);
@@ -191,12 +179,15 @@ void onMqttMessage(int messageSize)
         mqttClient.beginMessage(outTopic, payload.length(), retained, qos, dup);
         mqttClient.print(payload);
         mqttClient.endMessage();
+
+        servo2.detach();
     }
     else if(!recv_msg.compareTo("1"))
     {
         Serial.println("switch on!");
         switch_on = 1;
         
+        servo.attach(SERVO_PIN_1);
         servo.write(135);
         delay(500);
         servo.write(90);
@@ -205,6 +196,8 @@ void onMqttMessage(int messageSize)
         mqttClient.beginMessage(outTopic, payload.length(), retained, qos, dup);
         mqttClient.print(payload);
         mqttClient.endMessage();
+
+        servo.detach();
     }
 }
   
