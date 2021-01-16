@@ -7,13 +7,15 @@
 #elif defined(ARDUINO_ESP8266_ESP12)
 #include <ESP8266WiFi.h>
 #endif
+#include <ArduinoOTA.h>
+#include "arduino_secrets.h" 
 
 #define SERVO_PIN_1 2
 #define SERVO_PIN_2 3
 #define LED_PIN 4
 
-char ssid[] = "SuperSmartSonMesh_2G";
-char pass[] = "22872287228722872";
+char ssid[] = SECRET_SSID;
+char pass[] = SECRET_PASS;
 
 WiFiClient wifiClient;
 MqttClient mqttClient(wifiClient);
@@ -46,8 +48,7 @@ void setup_servo()
 
 void setup()
 {
-    pinMode(LED_PIN, OUTPUT);
-    digitalWrite(LED_PIN, LOW);
+    pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(LED_BUILTIN, LOW);
     //Initialize serial and wait for port to open:
     Serial.begin(9600);
@@ -124,7 +125,9 @@ void setup()
     // topics can be unsubscribed using:
     // mqttClient.unsubscribe(inTopic);
     setup_servo();
-    digitalWrite(LED_PIN, HIGH);
+
+    ArduinoOTA.begin(WiFi.localIP(), "Arduino_Nano_33_IoT", "thsxogud1", InternalStorage);
+
     digitalWrite(LED_BUILTIN, HIGH);
 
     servo.detach();
@@ -134,6 +137,7 @@ void setup()
 void loop()
 {
     mqttClient.poll();
+    ArduinoOTA.poll();
 }
 
 
@@ -171,10 +175,10 @@ void onMqttMessage(int messageSize)
         switch_on = 0;
 
         servo2.attach(SERVO_PIN_2);
-        servo2.write(45);
-        delay(500);
+        servo2.write(90 - 35);
+        delay(250);
         servo2.write(90);
-        delay(500);
+        delay(250);
 
         mqttClient.beginMessage(outTopic, payload.length(), retained, qos, dup);
         mqttClient.print(payload);
@@ -188,10 +192,10 @@ void onMqttMessage(int messageSize)
         switch_on = 1;
         
         servo.attach(SERVO_PIN_1);
-        servo.write(135);
-        delay(500);
+        servo.write(90 + 35);
+        delay(250);
         servo.write(90);
-        delay(500);
+        delay(250);
 
         mqttClient.beginMessage(outTopic, payload.length(), retained, qos, dup);
         mqttClient.print(payload);
