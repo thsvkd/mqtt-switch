@@ -136,10 +136,27 @@ void setup()
 
 void loop()
 {
+    check_connect()
+
     mqttClient.poll();
     ArduinoOTA.poll();
 }
 
+// TODO: complete function...
+void check_connect()
+{
+    if (!mqttClient.connect(broker, port))
+    {
+        if(WiFi.begin(ssid, pass) != WL_CONNECTED)
+        {
+            while (WiFi.begin(ssid, pass) != WL_CONNECTED)
+            {
+                Serial.print(".");
+                delay(250);
+            }
+        }
+    }
+}
 
 void onMqttMessage(int messageSize)
 {
